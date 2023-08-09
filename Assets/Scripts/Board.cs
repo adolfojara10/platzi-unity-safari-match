@@ -18,6 +18,8 @@ public class Board : MonoBehaviour
 
     public GameObject[] availablePieces;
 
+    public int PointsPerMatch;
+
 
     Tile[,] Tiles;
 
@@ -38,8 +40,34 @@ public class Board : MonoBehaviour
 
         SetUpBoard();
         PositionCamera();
-        StartCoroutine(SetupPieces());
+
+        if (GameManager.Instance.gameState == GameManager.GameState.InGame)
+        {
+            StartCoroutine(SetupPieces());
+        }
+
+        GameManager.Instance.OnGameStateUpdated.AddListener(OnGameStateUpdated);
+
     }
+
+    private void OnDestroy()
+    {
+        GameManager.Instance.OnGameStateUpdated.RemoveListener(OnGameStateUpdated);
+    }
+
+    private void OnGameStateUpdated(GameManager.GameState newState)
+    {
+        if (newState == GameManager.GameState.InGame)
+        {
+            StartCoroutine(SetupPieces());
+        }
+
+        if (newState == GameManager.GameState.GameOver)
+        {
+            ClearAllPieces();
+        }
+    }
+
 
 
     private void SetUpBoard()
@@ -74,13 +102,13 @@ public class Board : MonoBehaviour
     {
         var selectedPiece = availablePieces[UnityEngine.Random.Range(0, availablePieces.Length)];
 
-        var o = Instantiate(selectedPiece, new Vector3(x, y+1, -5), Quaternion.identity);
+        var o = Instantiate(selectedPiece, new Vector3(x, y + 1, -5), Quaternion.identity);
         o.transform.parent = transform;
         Pieces[x, y] = o.GetComponent<Piece>();
         Pieces[x, y].Setup(x, y, this);
 
-        Pieces[x, y].Move(x,y);
-        
+        Pieces[x, y].Move(x, y);
+
 
         return Pieces[x, y];
     }
@@ -92,6 +120,17 @@ public class Board : MonoBehaviour
         Pieces[posx, posy].Remove(true);
         Pieces[posx, posy] = null;
 
+    }
+
+    private void ClearAllPieces()
+    {
+        for (int i = 0; i < width; i++)
+        {
+            for (int j = 0; j < height; j++)
+            {
+                ClearPieceAt(i, j);
+            }
+        }
     }
 
     private IEnumerator SetupPieces()
@@ -130,7 +169,7 @@ public class Board : MonoBehaviour
 
     public void TileDown(Tile tile_)
     {
-        if (!swappingPieces)
+        if (!swappingPieces && GameManager.Instance.gameState == GameManager.GameState.InGame)
         {
             startTile = tile_;
         }
@@ -140,7 +179,7 @@ public class Board : MonoBehaviour
 
     public void TileOver(Tile tile_)
     {
-        if (!swappingPieces)
+        if (!swappingPieces && GameManager.Instance.gameState == GameManager.GameState.InGame)
         {
             endTile = tile_;
         }
@@ -150,7 +189,7 @@ public class Board : MonoBehaviour
 
     public void TileUp(Tile tile_)
     {
-        if (!swappingPieces)
+        if (!swappingPieces && GameManager.Instance.gameState == GameManager.GameState.InGame)
         {
             if (startTile != null && endTile != null && IsCloseTo(startTile, endTile))
             {
@@ -166,6 +205,8 @@ public class Board : MonoBehaviour
         var StartPiece = Pieces[startTile.x, startTile.y];
 
         var EndPiece = Pieces[endTile.x, endTile.y];
+
+        AudioManager.Instance.Move();
 
         StartPiece.Move(endTile.x, endTile.y);
         EndPiece.Move(startTile.x, startTile.y);
@@ -212,6 +253,8 @@ public class Board : MonoBehaviour
             StartPiece.Move(startTile.x, startTile.y);
             EndPiece.Move(endTile.x, endTile.y);
 
+            AudioManager.Instance.Miss();
+
             Pieces[startTile.x, startTile.y] = StartPiece;
             Pieces[endTile.x, endTile.y] = EndPiece;
 
@@ -219,6 +262,7 @@ public class Board : MonoBehaviour
         else
         {
             ClearPieces(allMatches);
+            AwardPoints(allMatches);
         }
 
         startTile = null;
@@ -321,6 +365,7 @@ public class Board : MonoBehaviour
                 newMatches = newMatches.Union(matches).ToList();
 
                 ClearPieces(newMatches);
+                AwardPoints(newMatches);
             }
         });
 
@@ -464,6 +509,12 @@ public class Board : MonoBehaviour
 
         return foundMatches;
 
+    }
+
+
+    public void AwardPoints(List<Piece> allMatches)
+    {
+        GameManager.Instance.AddPoints(allMatches.Count * PointsPerMatch);
     }
 
 }

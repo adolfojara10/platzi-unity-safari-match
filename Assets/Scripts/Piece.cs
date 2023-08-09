@@ -51,7 +51,7 @@ public class Piece : MonoBehaviour
     {
         if (animated)
         {
-            transform.DORotate(Vector3(0,0,-120f), 0.12f);
+            transform.DORotate(new Vector3(0,0,-120f), 0.12f);
 
             transform.DOScale(Vector3.one * 1.2f, 0.085f).onComplete = () =>
             {
